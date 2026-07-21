@@ -7,6 +7,7 @@
 // the tool reads it at call time.
 import type { Effect } from "effect"
 import type { Tool as AiTool } from "ai"
+import type { TurnContext } from "../mcp"
 import type * as Tool from "./tool"
 
 export const toolScriptRegistry: {
@@ -19,7 +20,7 @@ export const toolScriptRegistry: {
 // layer out of the registry graph — providing MCP.defaultLayer to the registry
 // would spin up a SECOND set of MCP client connections.
 export const toolScriptMcp: {
-  current: (() => Effect.Effect<Record<string, AiTool>>) | undefined
+  current: ((context?: TurnContext) => Effect.Effect<Record<string, AiTool>>) | undefined
 } = { current: undefined }
 
 // Agent control-flow tools make no sense inside a script (they steer the
