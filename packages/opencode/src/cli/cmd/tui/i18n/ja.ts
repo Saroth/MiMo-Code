@@ -303,6 +303,7 @@ export const dict = {
   "tui.command.console.org.switch.title": "組織を切り替え",
   "tui.command.opencode.status.title": "ステータスを表示",
   "tui.command.theme.switch.title": "テーマを切り替え",
+  "tui.command.layout.switch.title": "レイアウトを切り替え",
   "tui.command.logo.switch.title": "ロゴデザインを切り替え",
   "tui.dialog.logo.title": "ロゴデザイン",
   "tui.dialog.logo.option.classic": "クラシック（太字）",

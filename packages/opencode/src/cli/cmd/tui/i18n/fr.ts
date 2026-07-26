@@ -359,6 +359,7 @@ export const dict = {
   "tui.command.console.org.switch.title": "Changer d'organisation",
   "tui.command.opencode.status.title": "Voir l'état",
   "tui.command.theme.switch.title": "Changer de thème",
+  "tui.command.layout.switch.title": "Changer de mise en page",
   "tui.command.logo.switch.title": "Changer le design du logo",
   "tui.dialog.logo.title": "Design du logo",
   "tui.dialog.logo.option.classic": "Classique (gras)",

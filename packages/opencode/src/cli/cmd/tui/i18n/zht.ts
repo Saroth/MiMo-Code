@@ -340,6 +340,7 @@ export const dict = {
   "tui.command.opencode.status.title": "檢視狀態",
   "tui.command.worktree.list.title": "工作樹",
   "tui.command.theme.switch.title": "切換主題",
+  "tui.command.layout.switch.title": "切換佈局",
   "tui.command.image.switch.title": "切換背景圖片",
   "tui.dialog.agent.force.title": "強制切換模式",
   "tui.dialog.agent.force.hint": "繞過工作階段中鎖定 — 可切換到任意可用模式",
