@@ -61,6 +61,15 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
     })
 
     return {
+      get length() {
+        return store.history.length
+      },
+      get index() {
+        return store.index
+      },
+      reset() {
+        setStore("index", 0)
+      },
       move(direction: 1 | -1, input: string) {
         if (!store.history.length) return undefined
         const current = store.history.at(store.index)
