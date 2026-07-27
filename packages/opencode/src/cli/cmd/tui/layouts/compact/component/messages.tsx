@@ -4,13 +4,16 @@ import { useSync } from "@tui/context/sync"
 import { useCurrentAgentID } from "@tui/context/route"
 import { Spinner } from "@tui/component/spinner"
 import { TextAttributes } from "@opentui/core"
+import { useLanguage } from "@tui/context/language"
 
-export function CompactMessages(props: { sessionID: string }) {
+export function CompactMessages(props: { sessionID: string; showWelcome?: boolean }) {
   const sync = useSync()
   const { theme } = useTheme()
   const currentAgentID = useCurrentAgentID()
+  const lang = useLanguage()
 
   const messages = createMemo(() => {
+    if (props.showWelcome) return []
     const buckets = sync.data.message[props.sessionID]
     const agentID = currentAgentID()
     if (agentID === "main" && !buckets?.["main"]?.length) return buckets?.[props.sessionID] ?? []
@@ -31,6 +34,29 @@ export function CompactMessages(props: { sessionID: string }) {
       paddingBottom={0}
       overflow="hidden"
     >
+      {/* Welcome info for new sessions */}
+      <Show when={props.showWelcome}>
+        <box flexDirection="column" paddingLeft={2} paddingTop={1}>
+          <text fg={theme.primary} attributes={TextAttributes.BOLD}>
+            MiMo Code
+          </text>
+          <text fg={theme.textMuted}>
+            Where Models and Agents Co-Evolve
+          </text>
+          <box height={1} />
+          <text fg={theme.textMuted}>
+            Type your message below to start a new conversation
+          </text>
+          <text fg={theme.textMuted}>
+            Use <span style={{ fg: theme.text }}>/help</span> to see available commands
+          </text>
+          <text fg={theme.textMuted}>
+            Press <span style={{ fg: theme.text }}>Ctrl+O</span> to open command palette
+          </text>
+        </box>
+      </Show>
+
+      {/* Messages */}
       <For each={messages()}>
         {(message) => (
           <box marginBottom={1}>

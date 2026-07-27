@@ -1,7 +1,7 @@
-import { createMemo } from "solid-js"
+import { createMemo, createSignal } from "solid-js"
 import { useTuiConfig } from "@tui/context/tui-config"
 import { useTerminalDimensions } from "@opentui/solid"
-import { useCurrentAgentID } from "@tui/context/route"
+import { useCurrentAgentID, useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { SessionContext } from "../context"
 import { CompactMessages } from "./component/messages"
@@ -13,9 +13,14 @@ export function CompactView(props: { sessionID: string }) {
   const tuiConfig = useTuiConfig()
   const dimensions = useTerminalDimensions()
   const currentAgentID = useCurrentAgentID()
+  const route = useRoute()
 
-  const permissions = createMemo(() => sync.data.permission[props.sessionID] ?? [])
-  const questions = createMemo(() => sync.data.question[props.sessionID] ?? [])
+  // Track the actual session ID (may change from "__new__" to real ID)
+  const [actualSessionID, setActualSessionID] = createSignal(props.sessionID)
+  const isNewSession = createMemo(() => actualSessionID() === "__new__")
+
+  const permissions = createMemo(() => sync.data.permission[actualSessionID()] ?? [])
+  const questions = createMemo(() => sync.data.question[actualSessionID()] ?? [])
   const visible = createMemo(
     () =>
       currentAgentID() === "main" &&
@@ -36,10 +41,16 @@ export function CompactView(props: { sessionID: string }) {
     separatorRef = r
   }
 
+  const handleSessionCreated = (sessionID: string) => {
+    setActualSessionID(sessionID)
+    // Navigate to the real session
+    route.navigate({ type: "session", sessionID })
+  }
+
   return (
     <box flexDirection="column" width={dimensions().width} height={dimensions().height}>
-      {/* Messages area */}
-      <CompactMessages sessionID={props.sessionID} />
+      {/* Messages area - always render, even for new sessions */}
+      <CompactMessages sessionID={actualSessionID()} showWelcome={isNewSession()} />
 
       {/* Fixed separator line */}
       <box flexShrink={0}>
@@ -49,11 +60,12 @@ export function CompactView(props: { sessionID: string }) {
       {/* Input area - fixed height, always visible */}
       <box flexShrink={0}>
         <CompactInput
-          sessionID={props.sessionID}
+          sessionID={actualSessionID()}
           visible={visible()}
           disabled={disabled()}
           ref={bindInput}
           separatorRef={separatorRef}
+          onSessionCreated={handleSessionCreated}
           onSubmit={() => {
             // Scroll to bottom after submit
           }}

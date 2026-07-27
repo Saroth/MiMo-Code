@@ -1,13 +1,15 @@
 import { createSimpleContext } from "./helper"
 import { useKV } from "./kv"
 import { createStore } from "solid-js/store"
-import type { JSX } from "solid-js"
+import { createMemo, type JSX } from "solid-js"
 import { getDiscoveredLayouts } from "../layouts"
 
 export interface LayoutDefinition {
   name: string
   label: string
   description: string
+  /** Whether to show the home screen (default: true) */
+  showHome?: boolean
   Session: (props: { sessionID: string }) => JSX.Element
   Home: () => JSX.Element
 }
@@ -43,6 +45,12 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
     setStore("active", isValidLayout ? saved : DEFAULT_LAYOUT)
     setStore("ready", true)
 
+    // Reactive computation for home screen visibility
+    const showHome = createMemo(() => {
+      const current = store.layouts[store.active]
+      return current?.showHome !== false
+    })
+
     return {
       get active() {
         return store.active
@@ -56,6 +64,8 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       get current(): LayoutDefinition | undefined {
         return store.layouts[store.active]
       },
+      /** Call this function in JSX for reactive updates */
+      showHome,
       set(layout: string) {
         if (!store.layouts[layout]) return false
         setStore("active", layout)

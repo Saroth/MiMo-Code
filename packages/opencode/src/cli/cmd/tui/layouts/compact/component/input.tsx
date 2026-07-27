@@ -28,6 +28,7 @@ export function CompactInput(props: {
   visible?: boolean
   disabled?: boolean
   onSubmit?: () => void
+  onSessionCreated?: (sessionID: string) => void
   ref?: (ref: CompactInputRef | undefined) => void
   separatorRef?: SeparatorRef
 }) {
@@ -110,7 +111,28 @@ export function CompactInput(props: {
 
   async function submit() {
     const text = value().trim()
-    if (!text || !props.sessionID) return
+    if (!text) return
+
+    // Handle new session creation
+    let sessionID = props.sessionID
+    if (sessionID === "__new__" || !sessionID) {
+      try {
+        const result = await sdk.client.session.create({})
+        if (result.data?.id) {
+          sessionID = result.data.id
+          props.onSessionCreated?.(sessionID)
+        } else {
+          toast.show({ message: "Failed to create session", variant: "error" })
+          return
+        }
+      } catch (error) {
+        toast.show({
+          message: error instanceof Error ? error.message : "Failed to create session",
+          variant: "error",
+        })
+        return
+      }
+    }
 
     // Save to history before submitting
     history.append({ input: text, parts: [] })
@@ -136,7 +158,7 @@ export function CompactInput(props: {
         const args = text.includes(" ") ? text.slice(text.indexOf(" ") + 1) : ""
         try {
           await sdk.client.session.command({
-            sessionID: props.sessionID,
+            sessionID,
             command: serverCommand.name,
             arguments: args,
           })
@@ -160,7 +182,7 @@ export function CompactInput(props: {
 
     try {
       await sdk.client.session.prompt({
-        sessionID: props.sessionID,
+        sessionID,
         parts: [{ type: "text", text }],
       })
       props.onSubmit?.()

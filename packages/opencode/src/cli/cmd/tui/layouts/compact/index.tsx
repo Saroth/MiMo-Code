@@ -5,6 +5,7 @@ export const CompactLayout: LayoutDefinition = {
   name: "compact",
   label: "Compact",
   description: "Compact, efficient layout",
+  showHome: false,
   Session: (props) => <CompactLayoutComponent sessionID={props.sessionID} />,
   Home: () => <></>,
 }

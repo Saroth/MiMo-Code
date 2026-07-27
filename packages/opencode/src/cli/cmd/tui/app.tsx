@@ -44,7 +44,7 @@ import { DialogWorkflows } from "@tui/component/dialog-workflows"
 import { DialogConsoleOrg } from "@tui/component/dialog-console-org"
 import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
-import { LayoutProvider } from "@tui/context/layout"
+import { LayoutProvider, useLayout } from "@tui/context/layout"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
 import { PromptHistoryProvider } from "./component/prompt/history"
@@ -258,6 +258,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
   const promptRef = usePromptRef()
   const lang = useLanguage()
   const t = lang.t
+  const layoutCtx = useLayout()
   const routes: RouteMap = new Map()
   const [routeRev, setRouteRev] = createSignal(0)
   const routeView = (name: string) => {
@@ -455,6 +456,19 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         route.navigate({ type: "session", sessionID: match })
       }
     }
+  })
+
+  // Navigate to new session placeholder when home screen is hidden (compact layout)
+  // The actual session is created on first message submit
+  let autoNavigated = false
+  createEffect(() => {
+    if (autoNavigated || sync.status === "loading") return
+    if (layoutCtx.showHome()) return  // Only navigate when home is hidden
+    if (route.data.type !== "home") return
+    if (args.continue) return  // Don't interfere with -c flag
+    autoNavigated = true
+    // Navigate to placeholder - session will be created on first submit
+    route.navigate({ type: "session", sessionID: "__new__" })
   })
 
   // Handle --session with --fork: wait for sync to be fully complete before forking
@@ -1475,7 +1489,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       </Show>
       <Show when={ready() && !switchingOrchestrator()}>
         <Switch>
-          <Match when={route.data.type === "home"}>
+          <Match when={route.data.type === "home" && layoutCtx.showHome()}>
             <Home />
           </Match>
           <Match when={route.data.type === "session"}>
