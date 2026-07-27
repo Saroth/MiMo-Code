@@ -117,7 +117,7 @@ const GO_UPSELL_WINDOW = 86_400_000 // 24 hrs
 const QUEUE_TOKEN_PLAN_LAST_SEEN_AT = "queue_token_plan_last_seen_at"
 const QUEUE_TOKEN_PLAN_WINDOW = 86_400_000 // 24 hrs
 
-export const context = createContext<{
+const context = createContext<{
   width: number
   sessionID: string
   conceal: () => boolean
@@ -1270,37 +1270,38 @@ export function Session() {
   // Check layout from layout context
   const layoutCtx = useLayout()
   const currentLayout = () => layoutCtx.current
-  const isDefaultLayout = () => layoutCtx.active === "default" || !currentLayout()
 
+  // Use the layout system to render the appropriate layout
   return (
     <Switch>
-      <Match when={!isDefaultLayout()}>
+      <Match when={currentLayout()}>
         {(() => {
           const LayoutComponent = currentLayout()!.Session
           return <LayoutComponent sessionID={route.sessionID} />
         })()}
       </Match>
       <Match when={true}>
-        <context.Provider
-          value={{
-            get width() {
-              return contentWidth()
-            },
-            sessionID: route.sessionID,
-            conceal,
-            thinkingMode,
-            showThinking,
-            showTimestamps,
-            showDetails,
-            showGenericToolOutput,
-            diffWrapMode,
-            providers,
-            sync,
-            tui: tuiConfig,
-            freeApiSunset,
-          }}
-        >
-          <box flexDirection="row">
+      {/* Fallback: render default layout directly if no layout is registered */}
+    <context.Provider
+      value={{
+        get width() {
+          return contentWidth()
+        },
+        sessionID: route.sessionID,
+        conceal,
+        thinkingMode,
+        showThinking,
+        showTimestamps,
+        showDetails,
+        showGenericToolOutput,
+        diffWrapMode,
+        providers,
+        sync,
+        tui: tuiConfig,
+        freeApiSunset,
+      }}
+    >
+      <box flexDirection="row">
         <box flexGrow={1} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1} onMouse={onWheel}>
           <Show
             when={!workflowRunID()}

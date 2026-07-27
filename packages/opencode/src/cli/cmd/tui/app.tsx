@@ -201,23 +201,23 @@ export function tui(input: {
                           <SyncProvider>
                             <ThemeProvider mode={mode} plain={plainTerminal}>
                               <LayoutProvider>
-                                <LocalProvider>
-                                  <KeybindProvider>
-                                    <PromptStashProvider>
-                                      <DialogProvider>
-                                        <CommandProvider>
-                                          <FrecencyProvider>
-                                            <PromptHistoryProvider>
-                                              <PromptRefProvider>
-                                                <App onSnapshot={input.onSnapshot} />
-                                              </PromptRefProvider>
-                                            </PromptHistoryProvider>
-                                          </FrecencyProvider>
-                                        </CommandProvider>
-                                      </DialogProvider>
-                                    </PromptStashProvider>
-                                  </KeybindProvider>
-                                </LocalProvider>
+                              <LocalProvider>
+                                <KeybindProvider>
+                                  <PromptStashProvider>
+                                    <DialogProvider>
+                                      <CommandProvider>
+                                        <FrecencyProvider>
+                                          <PromptHistoryProvider>
+                                            <PromptRefProvider>
+                                              <App onSnapshot={input.onSnapshot} />
+                                            </PromptRefProvider>
+                                          </PromptHistoryProvider>
+                                        </FrecencyProvider>
+                                      </CommandProvider>
+                                    </DialogProvider>
+                                  </PromptStashProvider>
+                                </KeybindProvider>
+                              </LocalProvider>
                               </LayoutProvider>
                             </ThemeProvider>
                           </SyncProvider>
