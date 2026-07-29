@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+BASEPATH=$(cd `dirname $0`; pwd)
+LOG_DIR="$BASEPATH/../.dev-home/data/log"
+PATTERN="dev-main-*.active.log"
+
+tail_pid=""
+
+start_tail() {
+  local latest
+  latest=$(ls -t "$LOG_DIR"/$PATTERN 2>/dev/null | head -n1)
+  if [ -z "$latest" ]; then
+    return
+  fi
+
+  # 杀掉旧的 tail
+  if [ -n "$tail_pid" ] && kill -0 "$tail_pid" 2>/dev/null; then
+    kill "$tail_pid"
+  fi
+
+  echo "Tailing: $latest"
+  tail -n0 -F "$latest" &
+  tail_pid=$!
+}
+
+# 初始启动
+start_tail
+
+inotifywait -m -e create -e moved_to "$LOG_DIR" |
+while read dir event file; do
+  case "$file" in
+    dev-worker-*.active.log)
+      echo "Detected new active log: $file"
+      start_tail
+      ;;
+  esac
+done
+

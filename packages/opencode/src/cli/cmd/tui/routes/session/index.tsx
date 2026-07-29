@@ -1270,18 +1270,19 @@ export function Session() {
   // Check layout from layout context
   const layoutCtx = useLayout()
   const currentLayout = () => layoutCtx.current
+  const hasCustomLayout = () => currentLayout()?.Session != null
 
   // Use the layout system to render the appropriate layout
   return (
     <Switch>
-      <Match when={currentLayout()}>
+      <Match when={hasCustomLayout()}>
         {(() => {
           const LayoutComponent = currentLayout()!.Session
           return <LayoutComponent sessionID={route.sessionID} />
         })()}
       </Match>
       <Match when={true}>
-      {/* Fallback: render default layout directly if no layout is registered */}
+      {/* Default layout: render directly */}
     <context.Provider
       value={{
         get width() {

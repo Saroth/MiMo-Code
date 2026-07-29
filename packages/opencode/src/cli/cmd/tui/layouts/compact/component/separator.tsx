@@ -58,7 +58,9 @@ export function Separator(props: {
 
   return (
     <Show when={!hidden()}>
-      <text fg={fg()}>{line()}</text>
+      <box flexShrink={0}>
+        <text fg={fg()}>{line()}</text>
+      </box>
     </Show>
   )
 }

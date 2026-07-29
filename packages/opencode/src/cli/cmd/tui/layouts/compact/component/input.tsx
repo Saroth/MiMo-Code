@@ -48,12 +48,57 @@ export function CompactInput(props: {
   const [focused, setFocused] = createSignal(true)
   const [autocompleteVisible, setAutocompleteVisible] = createSignal(false)
   const [exitPending, setExitPending] = createSignal(false)
-  // Track history navigation: 0 = not navigating, positive = steps back from current
   const [historySteps, setHistorySteps] = createSignal(0)
+  const [lastSubmittedText, setLastSubmittedText] = createSignal<string | null>(null)
+  const [lastUserMessageId, setLastUserMessageId] = createSignal<string | null>(null)
+
   let textareaEl: any = null
   let autocompleteRef: CompactAutocompleteRef | undefined
   let exitTimer: ReturnType<typeof setTimeout> | undefined
-  let suppressAutocomplete = false // Flag to suppress autocomplete after selection
+  let suppressAutocomplete = false
+  let suppressHistoryReset = false
+  let savedInput = ""
+
+  // Check if session is processing
+  const isProcessing = createMemo(() => {
+    if (!props.sessionID) return false
+    const messages = sync.data.message[props.sessionID]
+    if (!messages) return false
+    const allMessages = Object.values(messages).flat()
+    return allMessages.some((x) => x.role === "assistant" && !x.time.completed)
+  })
+
+  // Check if the assistant response to our last message has content
+  const hasResponseContent = createMemo(() => {
+    const userMsgId = lastUserMessageId()
+    if (!userMsgId || !props.sessionID) return false
+    const messages = sync.data.message[props.sessionID]
+    if (!messages) return false
+    const allMessages = Object.values(messages).flat()
+    // Find assistant message that comes after our user message and has text content
+    const userMsgIndex = allMessages.findIndex((x) => x.id === userMsgId)
+    if (userMsgIndex === -1) return false
+    // Check messages after the user message
+    for (let i = userMsgIndex + 1; i < allMessages.length; i++) {
+      const msg = allMessages[i]
+      if (msg.role === "assistant") {
+        const parts = sync.data.part[msg.id]
+        if (parts?.some((p) => p.type === "text" && p.text?.length > 0)) {
+          return true
+        }
+      }
+    }
+    return false
+  })
+
+  // Add to history when first response content is received
+  createEffect(() => {
+    if (hasResponseContent() && lastSubmittedText()) {
+      history.append({ input: lastSubmittedText()!, parts: [] })
+      setLastSubmittedText(null)
+      setLastUserMessageId(null)
+    }
+  })
 
   // Expose ref
   const ref: CompactInputRef = {
@@ -87,16 +132,14 @@ export function CompactInput(props: {
     if (!sep) return
 
     if (autocompleteVisible()) {
-      // When autocomplete is visible, it controls the separator
       return
     }
 
-    // Update separator for history navigation
     if (historySteps() > 0) {
       const total = history.length
       const current = total - historySteps() + 1
       sep.setTitle(`History ${current}/${total}`)
-      sep.setColor(undefined) // Use default color
+      sep.setColor(undefined)
     } else {
       sep.setTitle(undefined)
       sep.setColor(undefined)
@@ -134,9 +177,9 @@ export function CompactInput(props: {
       }
     }
 
-    // Save to history before submitting
-    history.append({ input: text, parts: [] })
+    // Reset history and save text for potential history add or revert
     resetHistory()
+    setLastSubmittedText(text)
 
     // Immediately clear input
     setValue("")
@@ -144,14 +187,13 @@ export function CompactInput(props: {
 
     // Check if this is a slash command
     if (text.startsWith("/")) {
-      // Check for client slash commands (like /help, /models, etc.)
       const clientSlash = command.slashes().find((s) => s.display === text)
       if (clientSlash) {
         clientSlash.onSelect?.()
+        setLastSubmittedText(null)
         return
       }
 
-      // Check for server slash commands
       const commandName = text.split("\n")[0].split(" ")[0].slice(1)
       const serverCommand = sync.data.command.find((item) => item.name === commandName)
       if (serverCommand) {
@@ -168,6 +210,7 @@ export function CompactInput(props: {
             variant: "error",
           })
         }
+        setLastSubmittedText(null)
         props.onSubmit?.()
         return
       }
@@ -177,6 +220,7 @@ export function CompactInput(props: {
     const selectedModel = local.model.current()
     if (!selectedModel) {
       toast.show({ message: "Please select a model first", variant: "warning" })
+      setLastSubmittedText(null)
       return
     }
 
@@ -185,6 +229,15 @@ export function CompactInput(props: {
         sessionID,
         parts: [{ type: "text", text }],
       })
+      // Find the user message ID we just sent
+      const messages = sync.data.message[sessionID]
+      if (messages) {
+        const allMessages = Object.values(messages).flat()
+        const lastUserMsg = allMessages.findLast((x) => x.role === "user")
+        if (lastUserMsg) {
+          setLastUserMessageId(lastUserMsg.id)
+        }
+      }
       props.onSubmit?.()
     } catch (error) {
       toast.show({
@@ -195,9 +248,7 @@ export function CompactInput(props: {
   }
 
   function handleSelect(command: string) {
-    // Suppress autocomplete from showing after selection
     suppressAutocomplete = true
-    // Replace the current input with the selected command
     setValue(command)
     if (textareaEl) {
       textareaEl.setText(command)
@@ -205,14 +256,12 @@ export function CompactInput(props: {
     }
     setAutocompleteVisible(false)
     resetHistory()
-    // Reset suppress flag after a short delay
     setTimeout(() => {
       suppressAutocomplete = false
     }, 100)
   }
 
   function handleDismiss() {
-    // Clear the "/" from input if autocomplete was dismissed
     if (value().startsWith("/")) {
       setValue("")
       if (textareaEl) textareaEl.setText("")
@@ -223,32 +272,49 @@ export function CompactInput(props: {
   // Navigate history
   function navigateHistory(direction: 1 | -1) {
     const currentInput = value()
-    const item = history.move(direction, currentInput)
+
+    if (historySteps() === 0 && direction === -1) {
+      savedInput = currentInput
+    }
+
+    const inputForHistory = (direction === -1 && historySteps() === 0 && currentInput.length > 0)
+      ? ""
+      : currentInput
+
+    const item = history.move(direction, inputForHistory)
     if (item) {
-      // Suppress autocomplete during history navigation
       suppressAutocomplete = true
+      suppressHistoryReset = true
       setValue(item.input)
       if (textareaEl) {
         textareaEl.setText(item.input)
         textareaEl.gotoBufferEnd()
       }
-      // Reset suppress flag after a short delay
       setTimeout(() => {
         suppressAutocomplete = false
+        suppressHistoryReset = false
       }, 100)
-      // Update history steps
+
       if (direction === -1) {
-        // Going back in history
         const newSteps = historySteps() + 1
-        // Cap at history length
         if (newSteps <= history.length) {
           setHistorySteps(newSteps)
         }
       } else {
-        // Going forward in history
         const newSteps = historySteps() - 1
         if (newSteps <= 0) {
           resetHistory()
+          suppressAutocomplete = true
+          suppressHistoryReset = true
+          setValue(savedInput)
+          if (textareaEl) {
+            textareaEl.setText(savedInput)
+            textareaEl.gotoBufferEnd()
+          }
+          setTimeout(() => {
+            suppressAutocomplete = false
+            suppressHistoryReset = false
+          }, 100)
         } else {
           setHistorySteps(newSteps)
         }
@@ -256,35 +322,28 @@ export function CompactInput(props: {
     }
   }
 
-  // Clear input and reset history
   function clearInput() {
     setValue("")
     if (textareaEl) textareaEl.setText("")
     resetHistory()
   }
 
-  // Placeholder text based on exit pending state
   const placeholderText = createMemo(() => {
     return exitPending() ? "Press Ctrl-C again to exit." : ""
   })
 
   return (
     <Show when={props.visible !== false}>
-      <box flexDirection="column">
+      <box flexDirection="column" flexShrink={0}>
         {/* Autocomplete menu */}
         <CompactAutocomplete
           ref={(r) => {
             autocompleteRef = r
-            // Track autocomplete visibility and update separator
             if (r) {
               const origOnInput = r.onInput
               r.onInput = (val: string) => {
                 origOnInput(val)
                 setAutocompleteVisible(r.visible)
-                // When autocomplete becomes visible, it will set its own separator title
-                if (r.visible && props.separatorRef) {
-                  // Autocomplete will handle its own separator title via its own effect
-                }
               }
             }
           }}
@@ -311,19 +370,19 @@ export function CompactInput(props: {
               if (textareaEl) {
                 const text = textareaEl.plainText
                 setValue(text)
-                // Notify autocomplete of input change (unless suppressed after selection)
                 if (!suppressAutocomplete) {
                   autocompleteRef?.onInput(text)
                 }
-                // Clear exit pending state when user types
                 if (text !== "" && exitPending()) {
                   setExitPending(false)
                   if (exitTimer) clearTimeout(exitTimer)
                 }
+                if (historySteps() > 0 && !suppressHistoryReset) {
+                  resetHistory()
+                }
               }
             }}
             onKeyDown={async (e) => {
-              // Let autocomplete handle keys first
               if (autocompleteRef?.visible) {
                 autocompleteRef.onKeyDown(e)
                 if (e.defaultPrevented) return
@@ -332,15 +391,11 @@ export function CompactInput(props: {
               // Handle Ctrl+C - double press to exit
               if (e.ctrl && e.name === "c") {
                 if (value() !== "") {
-                  // Clear input if there's text
                   clearInput()
                 } else if (exitPending()) {
-                  // Second press within 0.8s - exit
                   await exit()
                 } else {
-                  // First press - show exit hint
                   setExitPending(true)
-                  // Reset after 0.8 seconds
                   if (exitTimer) clearTimeout(exitTimer)
                   exitTimer = setTimeout(() => {
                     setExitPending(false)
@@ -355,21 +410,28 @@ export function CompactInput(props: {
                 return
               }
 
-              // Handle history navigation - Up arrow or Ctrl+P (when no autocomplete)
+              // Handle history navigation - Up arrow or Ctrl+P
               if (e.name === "up" || (e.ctrl && e.name === "p")) {
                 if (!autocompleteRef?.visible) {
-                  navigateHistory(-1)
-                  e.preventDefault()
-                  return
+                  const cursorRow = textareaEl?.visualCursor?.visualRow ?? 0
+                  if (cursorRow === 0) {
+                    navigateHistory(-1)
+                    e.preventDefault()
+                    return
+                  }
                 }
               }
 
-              // Handle history navigation - Down arrow or Ctrl+N (when no autocomplete)
+              // Handle history navigation - Down arrow or Ctrl+N
               if (e.name === "down" || (e.ctrl && e.name === "n")) {
                 if (!autocompleteRef?.visible) {
-                  navigateHistory(1)
-                  e.preventDefault()
-                  return
+                  const cursorOffset = textareaEl?.cursorOffset ?? 0
+                  const textLength = textareaEl?.plainText?.length ?? 0
+                  if (cursorOffset >= textLength) {
+                    navigateHistory(1)
+                    e.preventDefault()
+                    return
+                  }
                 }
               }
 
@@ -380,11 +442,39 @@ export function CompactInput(props: {
                 return
               }
 
-              // Handle Escape - clear and reset history
-              if (e.name === "escape" && value() !== "") {
-                clearInput()
-                e.preventDefault()
-                return
+              // Handle Escape - abort processing
+              if (e.name === "escape") {
+                const pendingText = lastSubmittedText()
+                if (pendingText && props.sessionID) {
+                  await sdk.client.session.abort({ sessionID: props.sessionID }).catch(() => {})
+                  // Try to revert the last message
+                  const buckets = sync.data.message[props.sessionID]
+                  if (buckets) {
+                    const allMessages = Object.values(buckets).flat()
+                    const lastUserMsg = allMessages.findLast((x) => x.role === "user")
+                    if (lastUserMsg) {
+                      await sdk.client.session.revert({
+                        sessionID: props.sessionID,
+                        messageID: lastUserMsg.id,
+                      }).catch(() => {})
+                    }
+                  }
+                  // Restore input
+                  suppressAutocomplete = true
+                  suppressHistoryReset = true
+                  setValue(pendingText)
+                  if (textareaEl) {
+                    textareaEl.setText(pendingText)
+                    textareaEl.gotoBufferEnd()
+                  }
+                  setLastSubmittedText(null)
+                  setTimeout(() => {
+                    suppressAutocomplete = false
+                    suppressHistoryReset = false
+                  }, 100)
+                  e.preventDefault()
+                  return
+                }
               }
             }}
             ref={(r) => {

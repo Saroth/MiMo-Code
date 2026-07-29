@@ -3,10 +3,10 @@ import { useTuiConfig } from "@tui/context/tui-config"
 import { useTerminalDimensions } from "@opentui/solid"
 import { useCurrentAgentID, useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
-import { SessionContext } from "../context"
 import { CompactMessages } from "./component/messages"
 import { CompactInput, type CompactInputRef } from "./component/input"
 import { Separator, type SeparatorRef } from "./component/separator"
+import { StatusBar } from "./component/status-bar"
 
 export function CompactView(props: { sessionID: string }) {
   const sync = useSync()
@@ -49,28 +49,27 @@ export function CompactView(props: { sessionID: string }) {
 
   return (
     <box flexDirection="column" width={dimensions().width} height={dimensions().height}>
-      {/* Messages area - always render, even for new sessions */}
+      {/* Messages area - takes remaining space */}
       <CompactMessages sessionID={actualSessionID()} showWelcome={isNewSession()} />
 
-      {/* Fixed separator line */}
-      <box flexShrink={0}>
-        <Separator ref={bindSeparator} />
-      </box>
+      {/* Separator line */}
+      <Separator ref={bindSeparator} />
 
-      {/* Input area - fixed height, always visible */}
-      <box flexShrink={0}>
-        <CompactInput
-          sessionID={actualSessionID()}
-          visible={visible()}
-          disabled={disabled()}
-          ref={bindInput}
-          separatorRef={separatorRef}
-          onSessionCreated={handleSessionCreated}
-          onSubmit={() => {
-            // Scroll to bottom after submit
-          }}
-        />
-      </box>
+      {/* Input area */}
+      <CompactInput
+        sessionID={actualSessionID()}
+        visible={visible()}
+        disabled={disabled()}
+        ref={bindInput}
+        separatorRef={separatorRef}
+        onSessionCreated={handleSessionCreated}
+        onSubmit={() => {
+          // Scroll to bottom after submit
+        }}
+      />
+
+      {/* Status bar */}
+      <StatusBar />
     </box>
   )
 }
