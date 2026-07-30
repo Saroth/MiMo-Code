@@ -43,17 +43,17 @@ export function Separator(props: {
     const o = offset()
 
     if (!t) {
-      return "─".repeat(width)
+      return "▂".repeat(width)
     }
 
     const titleLen = t.length
     const leftLen = Math.max(0, o)
     const rightLen = Math.max(0, width - leftLen - titleLen - 2) // 2 for spaces
-    return "─".repeat(leftLen) + " " + t + " " + "─".repeat(rightLen)
+    return "▂".repeat(leftLen) + " " + t + " " + "▂".repeat(rightLen)
   })
 
   const fg = createMemo(() => {
-    return color() || theme.textMuted
+    return color() || theme.secondary
   })
 
   return (

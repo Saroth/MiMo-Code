@@ -20,7 +20,7 @@ export function StatusBar() {
     <box
       flexShrink={0}
       height={1}
-      backgroundColor={theme.backgroundElement}
+      backgroundColor={theme.background}
       paddingLeft={1}
       paddingRight={1}
       flexDirection="row"

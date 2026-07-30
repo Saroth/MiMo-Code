@@ -334,7 +334,7 @@ export function CompactInput(props: {
 
   return (
     <Show when={props.visible !== false}>
-      <box flexDirection="column" flexShrink={0}>
+      <box flexDirection="column" flexShrink={0} backgroundColor={theme.backgroundElement}>
         {/* Autocomplete menu */}
         <CompactAutocomplete
           ref={(r) => {
@@ -446,20 +446,27 @@ export function CompactInput(props: {
               if (e.name === "escape") {
                 const pendingText = lastSubmittedText()
                 if (pendingText && props.sessionID) {
+                  // Abort any processing first
                   await sdk.client.session.abort({ sessionID: props.sessionID }).catch(() => {})
-                  // Try to revert the last message
-                  const buckets = sync.data.message[props.sessionID]
-                  if (buckets) {
-                    const allMessages = Object.values(buckets).flat()
-                    const lastUserMsg = allMessages.findLast((x) => x.role === "user")
-                    if (lastUserMsg) {
+                  
+                  // Use the tracked user message ID for revert
+                  const userMsgId = lastUserMessageId()
+                  if (userMsgId) {
+                    try {
                       await sdk.client.session.revert({
                         sessionID: props.sessionID,
-                        messageID: lastUserMsg.id,
-                      }).catch(() => {})
+                        messageID: userMsgId,
+                      })
+                    } catch (err) {
+                      // Revert failed, continue anyway
                     }
                   }
-                  // Restore input
+                  
+                  // Clear tracked state
+                  setLastSubmittedText(null)
+                  setLastUserMessageId(null)
+                  
+                  // Restore input and reset history
                   suppressAutocomplete = true
                   suppressHistoryReset = true
                   setValue(pendingText)
@@ -467,7 +474,7 @@ export function CompactInput(props: {
                     textareaEl.setText(pendingText)
                     textareaEl.gotoBufferEnd()
                   }
-                  setLastSubmittedText(null)
+                  resetHistory()
                   setTimeout(() => {
                     suppressAutocomplete = false
                     suppressHistoryReset = false

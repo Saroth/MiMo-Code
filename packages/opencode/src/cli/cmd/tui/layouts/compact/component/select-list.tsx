@@ -318,7 +318,7 @@ export function SelectList(props: {
 
   return (
     <Show when={props.visible}>
-      <box flexDirection="column">
+      <box flexDirection="column" backgroundColor={theme.backgroundElement}>
         <Show when={props.options.length > 0} fallback={
           <box paddingLeft={2} paddingRight={2}>
             <text fg={theme.textMuted}>{emptyText()}</text>
